@@ -11,9 +11,11 @@
 	integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI"
 	crossorigin="anonymous"></script>
 
+{% load static %}
+
 <head>
-	<title>WebGL Minecraft</title>
-	<link rel="shortcut icon" href="textures/icon.png">
+	<title>ISS Locater</title>
+	<link rel="icon" href="{% static 'images/rocketIcon.png' %}">
 	<style>
 		body {
 			margin: 0;
@@ -26,21 +28,109 @@
 </head>
 
 <body>
-	<h1 id = "text">TEST</h1>
+	<h1 id = "text" style="position: absolute; color: white;">TEST</h1>
 </body>
 
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<img src="{% static 'images/x.png' %}" style="position: absolute; left: 50%; top: 50%; width: 15px; transform: translate(-50%, -50%);">
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script> <!-- JQuery-->
+<script src="{% static 'three.js-master/build/three.js' %}"></script>
+<script src="{% static 'three.js-master/examples/js/loaders/GLTFLoader.js' %}"></script>
+
 <script>
-	let text = document.getElementById("text");
-	function updateText () {
-		$.getJSON('http://api.open-notify.org/iss-now.json?callback=?', function(data) {
-			var lat = data['iss_position']['latitude'];
-			var lon = data['iss_position']['longitude'];
-			text.innerHTML = lat + ", " + lon;
-			console.log("here");
+	let mainRenderer, zoomRenderer, scene, camera, lat, lon;
+
+	let keyboard = [];
+	addEventListener("keydown", (e) => {
+		keyboard[e.key] = true;
+	});
+	addEventListener("keyup", (e) => {
+		keyboard[e.key] = false;
+	});
+
+	function processKeyboard() {
+		
+	}
+
+	createScene();
+	function createScene() {
+		mainRenderer = new THREE.WebGLRenderer();
+		mainRenderer.setSize(window.innerWidth, window.innerHeight);
+		zoomRenderer = new THREE.WebGLRenderer();
+		zoomRenderer.setSize(400, 240);
+		let temp = zoomRenderer.domElement;
+		temp.style = "position: absolute; left: 0px; top: 50px";
+		document.body.appendChild(temp);
+		document.body.appendChild(mainRenderer.domElement);
+		camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000000000);
+		camera.position.z = 60000000; //20902600
+		camera.position.x = -1;
+		scene = new THREE.Scene();
+	}
+
+	addLighting();
+	function addLighting()
+	{
+		let sky = 0x000000;
+		scene.background = new THREE.Color(sky);
+		light = new THREE.SpotLight(0xffffff, 2);
+		light.position.set(0, 0, 20903000);
+		light.rotation.y = Math.PI;
+		scene.add(light)
+	}
+
+	let earth;
+	createEarth();
+	function createEarth() {
+		let loader = new THREE.TextureLoader();
+		let earthMap = loader.load("{% static 'images/earth.jpg' %}");
+		let geometry = new THREE.SphereBufferGeometry(20902231, 200, 200);
+		const material = new THREE.MeshBasicMaterial( {map: earthMap} );
+		earth = new THREE.Mesh( geometry, material );
+		scene.add( earth );
+	}
+
+	createISS();
+	function createISS() {
+		let loader = new THREE.GLTFLoader();
+		loader.load("{% static 'ISS_stationary.glb' %}", (gltf) => {
+			const root = gltf.scene;
+			root.rotation.x = Math.PI/6;
+			root.rotation.z = -Math.PI/10;
+			root.position.z = 20902300;
+			scene.add(root);
 		});
 	}
+
+	function rotateEarth() {
+		let y = Math.floor(lon) + (lon % 1) / 60.0 // lon;
+		let x = Math.floor(lat) + (lat % 1) / 60.0 // lat;
+		earth.rotation.y = -y * Math.PI/180 - Math.PI/2;
+		earth.rotation.x = x * Math.PI/180;
+	}
+
+	function drawScene() {
+		rotateEarth();
+		camera.position.z = 60000000;
+		mainRenderer.render(scene, camera);
+		camera.position.z = 20902450;
+		zoomRenderer.render(scene, camera);
+		processKeyboard();
+		updateText();
+		requestAnimationFrame(drawScene);
+	}
+
 	updateText();
+	function updateText () {
+		let text = document.getElementById("text");
+		$.getJSON('http://api.open-notify.org/iss-now.json?callback=?', function(data) {
+			lat = data['iss_position']['latitude'];
+			lon = data['iss_position']['longitude'];
+			text.innerHTML = lat + ", " + lon;
+		});
+	}
+
+	drawScene();
 </script>
 
 </html>
